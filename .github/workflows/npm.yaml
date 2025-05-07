@@ -1,0 +1,83 @@
+name: github runner
+
+on:
+  workflow_call: 
+  # pull_request:
+  #   branches:
+  #     - main
+
+jobs:
+  playwright:
+    runs-on: ubuntu-latest
+
+    env:
+      BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+      BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+
+    steps:
+      # - name: BrowserStack Actions
+      #   uses: browserstack/github-actions@v1.0.1
+      #   with:
+      #       # BrowserStack Username
+      #       username: ${{ secrets.BROWSERSTACK_USERNAME }}
+      #       # BrowserStack Access Key
+      #       access-key: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+      #       # Build name for the tests
+
+      # - name: 'BrowserStack Local Tunnel Setup'  # Invokes the setup-local action
+      #   uses: browserstack/github-actions/setup-local@master
+      #   with:
+      #     local-testing: start
+      #     local-identifier: random    
+          
+      # Step 1: Checkout the repository
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+            node-version: '20.x'
+            cache: 'npm'
+     
+
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: |
+         npm install
+         npm i -D browserstack-node-sdk@latest
+
+      # Step 4: Install Playwright Browsers
+      - name: Install Playwright Browsers
+        run: |
+          npx playwright install
+          
+         
+
+      # Step 5: Run Playwright box test case in headless mode
+      - name: Run Box Test Case
+        run: |
+        
+         npx playwright test --grep '@boxNotes' --project=browserstack --reporter=html
+      # - name: Upload HTML Report
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: playwright-html-report
+      #     path: report/index.html   
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          
+      - name: SonarSource/sonarqube-scan-action@v4
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_PROJECTKEY: ${{ secrets.SONAR_PROJECTKEY }}
+        run: |
+          npm install -g sonarqube-scanner
+          sonar-scanner \
+            -Dsonar.projectKey=$SONAR_PROJECTKEY \
+            -Dsonar.host.url=$SONAR_HOST_URL \
+            -Dsonar.login=$SONAR_TOKEN
